@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAT Practice</title>
+<style>
+  :root{
+    --ink:#23282B;
+    --ink-soft:#3A4247;
+    --paper:#E9E4D8;
+    --paper-2:#DDD6C4;
+    --paper-3:#CFC6AE;
+    --pencil:#3F9C8A;
+    --pencil-deep:#2C7566;
+    --graphite:#2B2924;
+    --graphite-soft:#6C685C;
+    --correct:#3F7D58;
+    --alert:#A63D2E;
+    --line: rgba(35,40,43,0.18);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper);
+    color:var(--graphite);
+    font-family: sans-serif;
+    min-height:100vh;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(35,40,43,0.07) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+
+  /* ---------- toggle button ---------- */
+  .sidebar-toggle{
+    position:fixed; top:24px; left:24px; z-index:60;
+    width:52px; height:52px; border-radius:50%;
+    background:var(--ink); color:var(--pencil); border:none;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; box-shadow:0 3px 10px rgba(35,40,43,0.35);
+    transition: transform .18s ease, background .18s ease;
+  }
+  .sidebar-toggle:hover{ transform:scale(1.06); background:var(--ink-soft); }
+  .sidebar-toggle:focus-visible{ outline:3px solid var(--pencil-deep); outline-offset:2px; }
+  .sidebar-toggle svg{ width:20px; height:20px; }
+
+  /* ---------- overlay scrim (blurs page behind sidebar) ---------- */
+  .sidebar-scrim{
+    position:fixed; inset:0; z-index:40;
+    background: rgba(35,40,43,0.28);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity:0; pointer-events:none;
+    transition: opacity .25s ease;
+  }
+  .sidebar-scrim.open{ opacity:1; pointer-events:auto; }
+
+  /* ---------- sidebar (slide-in overlay panel, 40% width) ---------- */
+  .sidebar{
+    position:fixed; top:0; left:0; height:100vh; width:40vw; max-width:420px; min-width:260px;
+    z-index:50;
+    display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
+    padding:0 0 0 clamp(28px, 6vw, 64px);
+    background:var(--paper-2);
+    border-right:1.5px solid var(--line);
+    box-shadow: 4px 0 24px rgba(35,40,43,0.18);
+    transform: translateX(-100%);
+    transition: transform .3s ease;
+  }
+  .sidebar.open{ transform:translateX(0); }
+  .sidebar-eyebrow{
+    font-family: monospace; font-size:11px; letter-spacing:0.1em;
+    text-transform:uppercase; color:var(--graphite-soft); margin-bottom:22px;
+  }
+  .sidebar-items{ display:flex; flex-direction:column; gap:18px; }
+  .nav-row{ display:flex; align-items:center; gap:16px; cursor:pointer; background:none; border:none; padding:0; text-align:left; }
+  .nav-bubble{
+    width:22px; height:22px; border-radius:50%; flex-shrink:0;
+    border:2.5px solid var(--ink); background:transparent;
+    transition: all .18s ease;
+  }
+  .nav-row:hover .nav-bubble{ background:rgba(35,40,43,0.12); transform:scale(1.1); }
+  .nav-bubble.active{ background:var(--ink); }
+  .nav-row:focus-visible .nav-bubble{ outline:3px solid var(--pencil-deep); outline-offset:2px; }
+  .nav-row-label{ font-family: serif; font-weight:600; font-size:17px; color:var(--ink); }
+
+  .main{ min-width:0; padding:40px clamp(20px,4vw,56px) 80px 96px; max-width:820px; filter:none; transition: filter .25s ease; }
+  .main.blurred{ filter: blur(3px); }
+
+  /* ---------- views ---------- */
+  .view{ display:none; }
+  .view.active{ display:block; animation:fade .35s ease; }
+  @keyframes fade{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+  /* ---------- HOME ---------- */
+  .eyebrow{
+    font-family: monospace; font-size:12px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--alert); margin-bottom:10px; font-weight:500;
+  }
+  .hero-title{
+    font-family: serif; font-weight:700; font-size:clamp(34px, 6vw, 52px);
+    line-height:1.05; color:var(--ink); margin:0 0 14px; letter-spacing:-0.02em;
+    max-width: 11ch;
+  }
+  .hero-sub{
+    font-size:16px; color:var(--graphite-soft); max-width:46ch; line-height:1.55; margin-bottom:36px;
+  }
+
+  .tool-list{ display:flex; flex-direction:column; gap:14px; max-width:480px; }
+  .tool-row{
+    background:var(--paper-2); border:1.5px solid var(--line); border-radius:14px;
+    padding:18px 20px; cursor:pointer; text-align:left;
+    display:flex; align-items:center; gap:16px;
+    transition: transform .18s ease, border-color .18s ease, background .18s ease;
+  }
+  .tool-row:hover{ transform:translateX(4px); border-color:var(--ink); background:var(--paper-3); }
+  .tool-row:focus-visible{ outline:3px solid var(--ink); outline-offset:2px; }
+  .bubble{
+    width:14px; height:14px; border-radius:50%; flex-shrink:0;
+    background:var(--ink);
+    box-shadow: 0 2px 0 rgba(35,40,43,0.25);
+    margin-left:6px;
+  }
+  .tool-name{ font-family: serif; font-weight:600; font-size:18px; color:var(--ink); }
+  .tool-desc{ font-size:13.5px; color:var(--graphite-soft); line-height:1.4; margin-top:2px; }
+
+  /* ---------- shared section header ---------- */
+  .section-head{ margin-bottom:30px; }
+  .section-title{
+    font-family: serif; font-weight:700; font-size:clamp(28px,4.5vw,38px);
+    color:var(--ink); margin:0 0 8px; letter-spacing:-0.01em;
+  }
+  .section-sub{ font-size:15px; color:var(--graphite-soft); max-width:52ch; line-height:1.5; }
+
+  /* ---------- CALCULATOR ---------- */
+  .calc-card{
+    background:var(--paper-2); border:1.5px solid var(--line); border-radius:14px; padding:30px;
+  }
+  .calc-row{
+    display:grid; grid-template-columns:1fr 130px; gap:16px; align-items:center;
+    padding:18px 0; border-bottom:1px solid var(--line);
+  }
+  .calc-row:last-of-type{ border-bottom:none; }
+  .calc-label{ font-weight:500; font-size:15px; color:var(--ink); }
+  .calc-label small{ display:block; font-weight:400; color:var(--graphite-soft); font-size:12.5px; margin-top:2px; }
+  .calc-input{
+    font-family: monospace; font-size:18px; text-align:center;
+    padding:10px; border:2px solid var(--line); border-radius:8px; background:var(--paper);
+    color:var(--ink); width:100%;
+  }
+  .calc-input:focus{ outline:none; border-color:var(--ink); }
+  .calc-btn{
+    margin-top:22px; width:100%; padding:14px; border:none; border-radius:10px;
+    background:var(--ink); color:var(--paper); font-family: monospace;
+    font-size:13px; letter-spacing:0.06em; text-transform:uppercase; font-weight:500;
+    cursor:pointer; transition: background .15s ease;
+  }
+  .calc-btn:hover{ background:var(--ink-soft); }
+
+  .results{ margin-top:26px; display:none; }
+  .results.show{ display:block; animation:fade .3s ease; }
+  .score-boxes{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .score-boxes{ grid-template-columns:1fr; } }
+  .score-box{
+    background:var(--paper); border:1.5px solid var(--line); border-radius:12px;
+    padding:18px; text-align:center;
+  }
+  .score-box.total{ background:var(--ink); border-color:var(--ink); }
+  .score-box.total .score-label{ color:rgba(237,233,221,0.7); }
+  .score-box.total .score-num{ color:var(--pencil); }
+  .score-label{
+    font-family: monospace; font-size:10.5px; text-transform:uppercase;
+    letter-spacing:0.08em; color:var(--graphite-soft); margin-bottom:8px;
+  }
+  .score-num{ font-family: serif; font-weight:700; font-size:34px; color:var(--ink); }
+  .disclaimer{
+    font-size:12.5px; color:var(--graphite-soft); margin-top:18px; line-height:1.6;
+    font-style:italic;
+  }
+
+  /* ---------- VOCAB ---------- */
+  .vocab-progress{
+    font-family: monospace; font-size:12px; color:var(--graphite-soft);
+    margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .progress-track{ height:4px; background:var(--paper-3); border-radius:2px; overflow:hidden; margin-top:6px; }
+  .progress-fill{ height:100%; background:var(--pencil-deep); transition:width .25s ease; }
+
+  .flashcard{
+    background:var(--paper-2); border:1.5px solid var(--line); border-radius:16px;
+    padding:50px 34px; min-height:260px; margin-top:20px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; cursor:pointer;
+    position:relative; transition: border-color .15s ease;
+  }
+  .flashcard:hover{ border-color:var(--ink); }
+  .card-pos{
+    position:absolute; top:16px; left:20px; font-family: monospace;
+    font-size:11px; color:var(--graphite-soft); text-transform:uppercase; letter-spacing:0.06em;
+  }
+  .card-known-tag{
+    position:absolute; top:16px; right:20px; font-family: monospace;
+    font-size:11px; color:var(--correct); text-transform:uppercase; letter-spacing:0.06em;
+    display:none;
+  }
+  .card-known-tag.show{ display:inline; }
+  .vocab-word{ font-family: serif; font-weight:700; font-size:38px; color:var(--ink); margin-bottom:10px; }
+  .vocab-pos{
+    font-family: monospace; font-size:12px; color:var(--pencil-deep);
+    font-style:italic; margin-bottom:18px;
+  }
+  .vocab-flip-hint{ font-family: monospace; font-size:11px; color:var(--graphite-soft); margin-top:6px; }
+  .vocab-def{ font-size:17px; color:var(--graphite); line-height:1.55; max-width:44ch; margin-bottom:14px; }
+  .vocab-example{ font-size:14.5px; color:var(--graphite-soft); font-style:italic; max-width:44ch; }
+
+  .vocab-controls{ display:flex; gap:10px; margin-top:22px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .ctrl-btn{
+    padding:11px 18px; border-radius:9px; border:1.5px solid var(--line); background:var(--paper);
+    color:var(--ink); font-family: sans-serif; font-size:13.5px; font-weight:500;
+    cursor:pointer; transition: all .15s ease;
+  }
+  .ctrl-btn:hover{ border-color:var(--ink); background:var(--paper-2); }
+  .ctrl-btn.primary{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  .ctrl-btn.primary:hover{ background:var(--ink-soft); }
+  .ctrl-btn.correct-flag{ border-color:var(--correct); color:var(--correct); }
+  .ctrl-btn.correct-flag.active{ background:var(--correct); color:var(--paper); }
+
+  .vocab-summary{
+    font-family: monospace; font-size:12px; color:var(--graphite-soft);
+    text-align:center; margin-top:20px;
+  }
+</style>
+</head>
+<body>
+
+  <!-- TOGGLE BUTTON -->
+  <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" aria-label="Open tools menu" title="Tools">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
+
+  <!-- SCRIM -->
+  <div class="sidebar-scrim" id="sidebarScrim" onclick="closeSidebar()"></div>
+
+  <!-- SIDEBAR NAV (overlay) -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-eyebrow">Select a tool</div>
+    <div class="sidebar-items">
+      <button class="nav-row" onclick="showView('home')">
+        <span class="nav-bubble active" id="nav-home"></span>
+        <span class="nav-row-label">Home</span>
+      </button>
+      <button class="nav-row" onclick="showView('calc')">
+        <span class="nav-bubble" id="nav-calc"></span>
+        <span class="nav-row-label">Score Calculator</span>
+      </button>
+      <button class="nav-row" onclick="showView('vocab')">
+        <span class="nav-bubble" id="nav-vocab"></span>
+        <span class="nav-row-label">Vocabulary</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="main" id="main">
+
+  <!-- HOME VIEW -->
+  <div class="view active" id="view-home">
+    <div class="eyebrow">Section 1 of 1 — Directions</div>
+    <h1 class="hero-title">Home page</h1>
+    <p class="hero-sub">Welcome — this is your SAT prep space. Tap the menu button in the top-left corner to pick a tool: estimate your score, or drill the vocabulary that shows up in Reading &amp; Writing. Work through them at your own pace, and come back as often as you need before test day.</p>
+
+    <div class="tool-list">
+      <button class="tool-row" onclick="showView('calc')">
+        <div class="bubble"></div>
+        <div>
+          <div class="tool-name">Score Calculator</div>
+          <div class="tool-desc">Estimate your scaled score, 400–1600.</div>
+        </div>
+      </button>
+
+      <button class="tool-row" onclick="showView('vocab')">
+        <div class="bubble"></div>
+        <div>
+          <div class="tool-name">Vocabulary</div>
+          <div class="tool-desc">30 flashcards with definitions and examples.</div>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- CALCULATOR VIEW -->
+  <div class="view" id="view-calc">
+    <div class="section-head">
+      <div class="eyebrow">Calculator</div>
+      <h2 class="section-title">Score calculator</h2>
+      <p class="section-sub">Digital SAT: 54 Reading &amp; Writing questions, 44 Math questions. Enter your correct count for each.</p>
+    </div>
+
+    <div class="calc-card">
+      <div class="calc-row">
+        <div class="calc-label">Reading &amp; Writing correct
+          <small>out of 54 questions</small>
+        </div>
+        <input type="number" class="calc-input" id="rwInput" min="0" max="54" placeholder="0">
+      </div>
+      <div class="calc-row">
+        <div class="calc-label">Math correct
+          <small>out of 44 questions</small>
+        </div>
+        <input type="number" class="calc-input" id="mathInput" min="0" max="44" placeholder="0">
+      </div>
+
+      <button class="calc-btn" onclick="calculateScore()">Estimate my score</button>
+
+      <div class="results" id="results">
+        <div class="score-boxes">
+          <div class="score-box">
+            <div class="score-label">Reading &amp; Writing</div>
+            <div class="score-num" id="rwScore">—</div>
+          </div>
+          <div class="score-box">
+            <div class="score-label">Math</div>
+            <div class="score-num" id="mathScore">—</div>
+          </div>
+          <div class="score-box total">
+            <div class="score-label">Total</div>
+            <div class="score-num" id="totalScore">—</div>
+          </div>
+        </div>
+        <div class="disclaimer">This is a rough estimate based on a typical curve shape, not College Board's official adaptive scoring — real digital SAT scoring adjusts module difficulty in real time, so your actual score may differ.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOCAB VIEW -->
+  <div class="view" id="view-vocab">
+    <div class="section-head">
+      <div class="eyebrow">Flashcards</div>
+      <h2 class="section-title">Vocabulary</h2>
+      <p class="section-sub">Tap the card to flip. Flag words you know so you can focus your review.</p>
+    </div>
+
+    <div class="vocab-progress">
+      <span id="progressText">Card 1 of 30</span>
+      <span id="knownCount">0 flagged as known</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:3.3%"></div></div>
+
+    <div class="flashcard" id="flashcard" onclick="flipCard()">
+      <div class="card-pos" id="cardPos">Front</div>
+      <div class="card-known-tag" id="cardKnownTag">✓ known</div>
+      <div id="cardFront">
+        <div class="vocab-word" id="wordFront">—</div>
+        <div class="vocab-pos" id="posFront">—</div>
+        <div class="vocab-flip-hint">tap to reveal definition</div>
+      </div>
+      <div id="cardBack" style="display:none;">
+        <div class="vocab-word" id="wordBack" style="font-size:26px;">—</div>
+        <div class="vocab-def" id="defBack">—</div>
+        <div class="vocab-example" id="exampleBack">—</div>
+      </div>
+    </div>
+
+    <div class="vocab-controls">
+      <button class="ctrl-btn" onclick="prevCard(event)">← Previous</button>
+      <button class="ctrl-btn correct-flag" id="knownBtn" onclick="toggleKnown(event)">Mark as known</button>
+      <button class="ctrl-btn primary" onclick="nextCard(event)">Next →</button>
+    </div>
+    <div class="vocab-controls">
+      <button class="ctrl-btn" onclick="shuffleCards(event)">🔀 Shuffle</button>
+      <button class="ctrl-btn" onclick="showUnknownOnly(event)" id="filterBtn">Show only unmarked</button>
+    </div>
+
+    <div class="vocab-summary" id="vocabSummary"></div>
+  </div>
+
+  </div>
+
+<script>
+  // ---------- view switching ----------
+  function showView(name){
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + name).classList.add('active');
+    document.querySelectorAll('.nav-bubble').forEach(b => b.classList.remove('active'));
+    document.getElementById('nav-' + name).classList.add('active');
+    window.scrollTo({top:0, behavior:'smooth'});
+    closeSidebar();
+  }
+
+  // ---------- sidebar open/close ----------
+  function toggleSidebar(){
+    const isOpen = document.getElementById('sidebar').classList.contains('open');
+    isOpen ? closeSidebar() : openSidebar();
+  }
+  function openSidebar(){
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sidebarScrim').classList.add('open');
+    document.getElementById('main').classList.add('blurred');
+  }
+  function closeSidebar(){
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarScrim').classList.remove('open');
+    document.getElementById('main').classList.remove('blurred');
+  }
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeSidebar(); });
+
+  // ---------- score calculator ----------
+  // Approximate S-curve breakpoints: percent correct -> scaled score (200-800)
+  const curve = [
+    [0,200],[10,300],[20,380],[30,440],[40,490],[50,540],
+    [60,590],[70,640],[80,690],[90,740],[95,780],[100,800]
+  ];
+  function scoreFromPercent(pct){
+    for(let i=0;i<curve.length-1;i++){
+      const [p1,s1] = curve[i];
+      const [p2,s2] = curve[i+1];
+      if(pct >= p1 && pct <= p2){
+        const ratio = (pct - p1) / (p2 - p1);
+        return Math.round((s1 + ratio*(s2-s1)) / 10) * 10;
+      }
+    }
+    return pct <= 0 ? 200 : 800;
+  }
+  function calculateScore(){
+    const rw = Math.min(54, Math.max(0, parseInt(document.getElementById('rwInput').value) || 0));
+    const math = Math.min(44, Math.max(0, parseInt(document.getElementById('mathInput').value) || 0));
+    const rwPct = (rw/54)*100;
+    const mathPct = (math/44)*100;
+    const rwScore = scoreFromPercent(rwPct);
+    const mathScore = scoreFromPercent(mathPct);
+    document.getElementById('rwScore').textContent = rwScore;
+    document.getElementById('mathScore').textContent = mathScore;
+    document.getElementById('totalScore').textContent = rwScore + mathScore;
+    document.getElementById('results').classList.add('show');
+  }
+
+  // ---------- vocab data ----------
+  const vocabBank = [
+    {word:"Ambivalent", pos:"adjective", def:"Having mixed or contradictory feelings about something.", example:"She felt ambivalent about moving abroad — excited, but also afraid of leaving home."},
+    {word:"Candor", pos:"noun", def:"The quality of being open and honest in expression.", example:"His candor about the company's failures surprised the board."},
+    {word:"Deference", pos:"noun", def:"Respectful submission to someone's judgment or wishes.", example:"The interns spoke with deference to the senior researchers."},
+    {word:"Ephemeral", pos:"adjective", def:"Lasting for a very short time.", example:"The beauty of the cherry blossoms is ephemeral, gone within a week."},
+    {word:"Fastidious", pos:"adjective", def:"Very attentive to detail; hard to please.", example:"The editor was fastidious about grammar, flagging even minor errors."},
+    {word:"Garrulous", pos:"adjective", def:"Excessively talkative, especially about trivial matters.", example:"The garrulous cab driver talked for the entire forty-minute ride."},
+    {word:"Hackneyed", pos:"adjective", def:"Overused and therefore lacking originality.", example:"The film relied on hackneyed plot twists that felt predictable."},
+    {word:"Impetuous", pos:"adjective", def:"Acting quickly without thought or care.", example:"His impetuous decision to quit cost him a stable career."},
+    {word:"Judicious", pos:"adjective", def:"Having or showing good judgment.", example:"The judge was known for her judicious rulings."},
+    {word:"Laconic", pos:"adjective", def:"Using very few words; terse.", example:"His laconic reply — just 'no' — ended the debate."},
+    {word:"Mitigate", pos:"verb", def:"To make something less severe or serious.", example:"The new policy aims to mitigate the effects of flooding."},
+    {word:"Nebulous", pos:"adjective", def:"Vague, unclear, or poorly defined.", example:"Her plans for the future remained nebulous."},
+    {word:"Obstinate", pos:"adjective", def:"Stubbornly refusing to change one's opinion.", example:"He was obstinate, ignoring every counterargument presented."},
+    {word:"Pragmatic", pos:"adjective", def:"Dealing with things sensibly and realistically.", example:"She took a pragmatic approach, focusing on what was achievable."},
+    {word:"Quandary", pos:"noun", def:"A state of uncertainty over what to do.", example:"He was in a quandary about which job offer to accept."},
+    {word:"Rescind", pos:"verb", def:"To officially cancel or revoke a decision.", example:"The committee voted to rescind the earlier policy."},
+    {word:"Solicitous", pos:"adjective", def:"Showing great concern or care.", example:"The nurse was solicitous, checking on the patient every hour."},
+    {word:"Taciturn", pos:"adjective", def:"Reserved or reluctant to speak.", example:"The taciturn stranger answered only in single words."},
+    {word:"Ubiquitous", pos:"adjective", def:"Present or found everywhere.", example:"Smartphones have become ubiquitous in modern life."},
+    {word:"Vindicate", pos:"verb", def:"To clear someone of blame after being proven right.", example:"New evidence eventually vindicated the accused engineer."},
+    {word:"Wary", pos:"adjective", def:"Cautious about possible dangers or problems.", example:"She grew wary of the salesman's overly generous offer."},
+    {word:"Zealous", pos:"adjective", def:"Showing great energy or enthusiasm for a cause.", example:"The zealous volunteers worked through the night to finish the shelter."},
+    {word:"Assuage", pos:"verb", def:"To make an unpleasant feeling less intense.", example:"His apology helped assuage her frustration."},
+    {word:"Benevolent", pos:"adjective", def:"Kind and generous; well-meaning.", example:"The benevolent donor funded the entire scholarship program."},
+    {word:"Capricious", pos:"adjective", def:"Given to sudden, unpredictable changes in mood.", example:"The capricious weather went from sunny to stormy in minutes."},
+    {word:"Diligent", pos:"adjective", def:"Showing careful and persistent effort.", example:"Her diligent studying paid off on exam day."},
+    {word:"Exacerbate", pos:"verb", def:"To make a problem worse.", example:"Cutting funding will only exacerbate the staffing shortage."},
+    {word:"Frivolous", pos:"adjective", def:"Not having any serious purpose or value.", example:"The board dismissed the lawsuit as frivolous."},
+    {word:"Gregarious", pos:"adjective", def:"Sociable; fond of company.", example:"Her gregarious personality made her the life of every gathering."},
+    {word:"Inevitable", pos:"adjective", def:"Certain to happen; unavoidable.", example:"Given the budget cuts, layoffs seemed inevitable."}
+  ];
+
+  let order = vocabBank.map((_,i) => i);
+  let idx = 0;
+  let known = new Set();
+  let flipped = false;
+  let filterMode = false;
+  let filteredOrder = order;
+
+  function currentList(){ return filterMode ? filteredOrder : order; }
+
+  function renderCard(){
+    const list = currentList();
+    if(list.length === 0){
+      document.getElementById('wordFront').textContent = "All caught up!";
+      document.getElementById('posFront').textContent = "";
+      document.getElementById('progressText').textContent = "0 unmarked remaining";
+      return;
+    }
+    idx = ((idx % list.length) + list.length) % list.length;
+    const cardIdx = list[idx];
+    const card = vocabBank[cardIdx];
+    document.getElementById('wordFront').textContent = card.word;
+    document.getElementById('posFront').textContent = card.pos;
+    document.getElementById('wordBack').textContent = card.word;
+    document.getElementById('defBack').textContent = card.def;
+    document.getElementById('exampleBack').textContent = "\u201C" + card.example + "\u201D";
+    document.getElementById('progressText').textContent = `Card ${idx+1} of ${list.length}`;
+    document.getElementById('knownCount').textContent = `${known.size} flagged as known`;
+    document.getElementById('progressFill').style.width = `${((idx+1)/list.length)*100}%`;
+    document.getElementById('cardKnownTag').classList.toggle('show', known.has(cardIdx));
+    document.getElementById('knownBtn').classList.toggle('active', known.has(cardIdx));
+    document.getElementById('knownBtn').textContent = known.has(cardIdx) ? '✓ Known' : 'Mark as known';
+    flipped = false;
+    document.getElementById('cardFront').style.display = 'block';
+    document.getElementById('cardBack').style.display = 'none';
+    document.getElementById('cardPos').textContent = 'Front';
+    document.getElementById('vocabSummary').textContent = `${known.size} of ${vocabBank.length} words marked known so far.`;
+  }
+
+  function flipCard(){
+    flipped = !flipped;
+    document.getElementById('cardFront').style.display = flipped ? 'none' : 'block';
+    document.getElementById('cardBack').style.display = flipped ? 'block' : 'none';
+    document.getElementById('cardPos').textContent = flipped ? 'Back' : 'Front';
+  }
+  function nextCard(e){ e.stopPropagation(); idx++; renderCard(); }
+  function prevCard(e){ e.stopPropagation(); idx--; renderCard(); }
+  function toggleKnown(e){
+    e.stopPropagation();
+    const list = currentList();
+    if(list.length === 0) return;
+    const cardIdx = list[idx];
+    if(known.has(cardIdx)) known.delete(cardIdx); else known.add(cardIdx);
+    renderCard();
+  }
+  function shuffleCards(e){
+    e.stopPropagation();
+    order = order.map(v=>[Math.random(),v]).sort((a,b)=>a[0]-b[0]).map(p=>p[1]);
+    if(filterMode) filteredOrder = order.filter(i => !known.has(i));
+    idx = 0;
+    renderCard();
+  }
+  function showUnknownOnly(e){
+    e.stopPropagation();
+    filterMode = !filterMode;
+    if(filterMode){
+      filteredOrder = order.filter(i => !known.has(i));
+      document.getElementById('filterBtn').textContent = 'Show all words';
+    } else {
+      document.getElementById('filterBtn').textContent = 'Show only unmarked';
+    }
+    idx = 0;
+    renderCard();
+  }
+
+  renderCard();
+</script>
+</body>
+</html>
